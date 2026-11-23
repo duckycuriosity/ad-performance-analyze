@@ -1,0 +1,16 @@
+target/
+.idea/
+*.iml
+.vscode/
+
+# Input data is ~1GB; download it from the challenge repository instead
+*.csv
+*.zip
+!results/top10_ctr.csv
+!results/top10_cpa.csv
+!samples/*.csv
+
+# Result files produced by the web UI
+results/web/
+
+__pycache__/
