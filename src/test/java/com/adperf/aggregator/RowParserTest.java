@@ -6,6 +6,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.nio.charset.StandardCharsets;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RowParserTest {
@@ -15,9 +17,10 @@ class RowParserTest {
 
     @Test
     void parsesValidRow() {
-        assertThat(parser.parse("CMP001,2025-01-01,12000,300,45.50,12")).isEqualTo(Status.VALID);
+        byte[] line = bytes("CMP001,2025-01-01,12000,300,45.50,12");
 
-        assertThat(parser.campaignId()).isEqualTo("CMP001");
+        assertThat(parser.parse(line, 0, line.length)).isEqualTo(Status.VALID);
+        assertThat(campaignId(parser, line)).isEqualTo("CMP001");
         assertThat(parser.impressions()).isEqualTo(12000);
         assertThat(parser.clicks()).isEqualTo(300);
         assertThat(parser.spendCents()).isEqualTo(4550);
@@ -25,22 +28,40 @@ class RowParserTest {
     }
 
     @Test
+    void parsesOnlyTheGivenRange() {
+        byte[] buffer = bytes("garbage\nCMP001,2025-01-01,12000,300,45.50,12\nmore");
+
+        assertThat(parser.parse(buffer, 8, 44)).isEqualTo(Status.VALID);
+        assertThat(campaignId(parser, buffer)).isEqualTo("CMP001");
+        assertThat(parser.conversions()).isEqualTo(12);
+    }
+
+    @Test
     void readsFieldsByHeaderPosition() {
         RowParser reordered = new RowParser(CsvHeader.parse("spend,conversions,campaign_id,clicks,date,impressions"));
+        byte[] line = bytes("45.50,12,CMP001,300,2025-01-01,12000");
 
-        assertThat(reordered.parse("45.50,12,CMP001,300,2025-01-01,12000")).isEqualTo(Status.VALID);
-
-        assertThat(reordered.campaignId()).isEqualTo("CMP001");
+        assertThat(reordered.parse(line, 0, line.length)).isEqualTo(Status.VALID);
+        assertThat(campaignId(reordered, line)).isEqualTo("CMP001");
         assertThat(reordered.impressions()).isEqualTo(12000);
         assertThat(reordered.spendCents()).isEqualTo(4550);
     }
 
     @Test
     void trimsWhitespaceAroundValues() {
-        assertThat(parser.parse(" CMP001 , 2025-01-01 ,12000, 300,45.5 ,12\t")).isEqualTo(Status.VALID);
+        byte[] line = bytes(" CMP001 , 2025-01-01 ,12000, 300,45.5 ,12\t");
 
-        assertThat(parser.campaignId()).isEqualTo("CMP001");
+        assertThat(parser.parse(line, 0, line.length)).isEqualTo(Status.VALID);
+        assertThat(campaignId(parser, line)).isEqualTo("CMP001");
         assertThat(parser.spendCents()).isEqualTo(4550);
+    }
+
+    @Test
+    void keepsNonAsciiCampaignIds() {
+        byte[] line = bytes("Chiến dịch 1,2025-01-01,1,1,1.00,1");
+
+        assertThat(parser.parse(line, 0, line.length)).isEqualTo(Status.VALID);
+        assertThat(campaignId(parser, line)).isEqualTo("Chiến dịch 1");
     }
 
     @ParameterizedTest
@@ -49,7 +70,7 @@ class RowParserTest {
             "CMP001,2025-01-01,12000,300,45.50,12,7",
             "CMP001;2025-01-01;12000;300;45.50;12"})
     void rejectsWrongFieldCount(String line) {
-        assertThat(parser.parse(line)).isEqualTo(Status.WRONG_FIELD_COUNT);
+        assertThat(parse(line)).isEqualTo(Status.WRONG_FIELD_COUNT);
     }
 
     @ParameterizedTest
@@ -60,18 +81,18 @@ class RowParserTest {
             "CMP001,2025-01-01,12000,300,,12",
             "CMP001,2025-01-01,12000,300,45.50,"})
     void rejectsMissingValue(String line) {
-        assertThat(parser.parse(line)).isEqualTo(Status.MISSING_VALUE);
+        assertThat(parse(line)).isEqualTo(Status.MISSING_VALUE);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"2025-13-01", "2025-02-30", "2023-02-29", "4/18/2025", "2025-1-01", "2025/01/01"})
     void rejectsInvalidDate(String date) {
-        assertThat(parser.parse("CMP001," + date + ",12000,300,45.50,12")).isEqualTo(Status.INVALID_DATE);
+        assertThat(parse("CMP001," + date + ",12000,300,45.50,12")).isEqualTo(Status.INVALID_DATE);
     }
 
     @Test
     void acceptsLeapDay() {
-        assertThat(parser.parse("CMP001,2024-02-29,12000,300,45.50,12")).isEqualTo(Status.VALID);
+        assertThat(parse("CMP001,2024-02-29,12000,300,45.50,12")).isEqualTo(Status.VALID);
     }
 
     @ParameterizedTest
@@ -85,12 +106,26 @@ class RowParserTest {
             "CMP001,2025-01-01,12000,300,.50,12",
             "CMP001,2025-01-01,9999999999999999999,300,45.50,12"})
     void rejectsInvalidNumber(String line) {
-        assertThat(parser.parse(line)).isEqualTo(Status.INVALID_NUMBER);
+        assertThat(parse(line)).isEqualTo(Status.INVALID_NUMBER);
     }
 
     @ParameterizedTest
     @CsvSource({"0, 0", "7, 700", "7.5, 750", "7.05, 705", "1394.62, 139462", "0.01, 1"})
     void parsesSpendIntoExactCents(String spend, long cents) {
-        assertThat(RowParser.parseCents(spend, 0, spend.length())).isEqualTo(cents);
+        byte[] bytes = bytes(spend);
+        assertThat(RowParser.parseCents(bytes, 0, bytes.length)).isEqualTo(cents);
+    }
+
+    private Status parse(String line) {
+        byte[] bytes = bytes(line);
+        return parser.parse(bytes, 0, bytes.length);
+    }
+
+    private static String campaignId(RowParser parser, byte[] line) {
+        return new String(line, parser.idStart(), parser.idEnd() - parser.idStart(), StandardCharsets.UTF_8);
+    }
+
+    private static byte[] bytes(String text) {
+        return text.getBytes(StandardCharsets.UTF_8);
     }
 }

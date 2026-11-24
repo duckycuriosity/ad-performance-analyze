@@ -14,3 +14,6 @@ target/
 results/web/
 
 __pycache__/
+
+# Packaged executable (published as a GitHub release asset, not committed)
+dist/

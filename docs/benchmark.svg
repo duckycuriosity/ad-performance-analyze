@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="300" viewBox="0 0 680 300" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" role="img">
+  <title>Processing time for the 1 GB file</title>
+  <desc>Median of three runs: 7.46 s single-threaded with a String per line, 4.60 s single-threaded with byte parsing, 3.06 s with 2 threads, 1.99 s with 4 threads and 1.56 s with 8 threads.</desc>
+  <rect x="0" y="0" width="680" height="300" rx="12" fill="#FFFFFF"/>
+
+  <text x="40" y="34" font-size="14" font-weight="600" fill="#2C2C2A">Processing time, 1 GB / 26.8 M rows (median of 3 runs, lower is better)</text>
+
+  <g font-size="12" fill="#2C2C2A" text-anchor="end">
+    <text x="250" y="75">Before: 1 thread, String per line</text>
+    <text x="250" y="117">1 thread, byte parsing</text>
+    <text x="250" y="159">2 threads</text>
+    <text x="250" y="201">4 threads</text>
+    <text x="250" y="243">8 threads (default)</text>
+  </g>
+
+  <rect x="260" y="56" width="330" height="28" rx="3" fill="#B4B2A9"/>
+  <rect x="260" y="98" width="203" height="28" rx="3" fill="#5DCAA5"/>
+  <rect x="260" y="140" width="135" height="28" rx="3" fill="#5DCAA5"/>
+  <rect x="260" y="182" width="88" height="28" rx="3" fill="#1D9E75"/>
+  <rect x="260" y="224" width="69" height="28" rx="3" fill="#0F6E56"/>
+
+  <g font-size="12" fill="#2C2C2A">
+    <text x="598" y="75">7.46 s</text>
+    <text x="471" y="117">4.60 s  ·  1.6× faster</text>
+    <text x="403" y="159">3.06 s  ·  2.4×</text>
+    <text x="356" y="201">1.99 s  ·  3.7×</text>
+    <text x="337" y="243">1.56 s  ·  4.8×</text>
+  </g>
+
+  <text x="40" y="282" font-size="11" fill="#888780">Intel Core i5-1155G7 (4 cores / 8 threads), NVMe SSD, Windows 11, JDK 21, -Xmx64m, file in OS page cache.</text>
+</svg>

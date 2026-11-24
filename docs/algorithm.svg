@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="700" viewBox="0 0 680 700" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" role="img">
+  <title>Multi-threaded aggregation flow</title>
+  <desc>The main thread reads the header, splits the data into N byte ranges aligned to line starts, N workers aggregate their ranges in parallel into private tables, and the main thread merges the tables, selects the top 10 and writes the CSV files.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="680" height="700" rx="12" fill="#FFFFFF"/>
+
+  <g>
+    <rect x="170" y="30" width="340" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.8"/>
+    <text x="340" y="52" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">Read header line</text>
+    <text x="340" y="72" text-anchor="middle" font-size="12" fill="#5F5E5A">Validate names, map column positions</text>
+  </g>
+  <line x1="340" y1="86" x2="340" y2="124" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="170" y="126" width="340" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.8"/>
+    <text x="340" y="148" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">Split data into N equal byte ranges</text>
+    <text x="340" y="168" text-anchor="middle" font-size="12" fill="#5F5E5A">N = --threads (default: number of CPU cores)</text>
+  </g>
+  <line x1="340" y1="182" x2="340" y2="220" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="170" y="222" width="340" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.8"/>
+    <text x="340" y="244" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">Move each cut to the next line start</text>
+    <text x="340" y="264" text-anchor="middle" font-size="12" fill="#5F5E5A">No line is split or read twice</text>
+  </g>
+
+  <path d="M340 278 L340 306 L123 306 L123 336" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M340 306 L340 336" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M340 306 L557 306 L557 336" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="30" y="338" width="186" height="76" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+    <text x="123" y="360" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">Worker 1</text>
+    <text x="123" y="380" text-anchor="middle" font-size="12" fill="#0F6E56">Range [b0, b1)</text>
+    <text x="123" y="398" text-anchor="middle" font-size="12" fill="#0F6E56">parse bytes → own table</text>
+  </g>
+  <g>
+    <rect x="247" y="338" width="186" height="76" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+    <text x="340" y="360" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">Worker 2</text>
+    <text x="340" y="380" text-anchor="middle" font-size="12" fill="#0F6E56">Range [b1, b2)</text>
+    <text x="340" y="398" text-anchor="middle" font-size="12" fill="#0F6E56">parse bytes → own table</text>
+  </g>
+  <g>
+    <rect x="464" y="338" width="186" height="76" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+    <text x="557" y="360" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">Worker N</text>
+    <text x="557" y="380" text-anchor="middle" font-size="12" fill="#0F6E56">Range [bN-1, bN)</text>
+    <text x="557" y="398" text-anchor="middle" font-size="12" fill="#0F6E56">parse bytes → own table</text>
+  </g>
+
+  <path d="M123 414 L123 442 L340 442 L340 472" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M340 414 L340 472" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M557 414 L557 442 L340 442" fill="none" stroke="#888780" stroke-width="1.5"/>
+
+  <g>
+    <rect x="170" y="474" width="340" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.8"/>
+    <text x="340" y="496" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">Merge N tables</text>
+    <text x="340" y="516" text-anchor="middle" font-size="12" fill="#5F5E5A">Sum totals per campaign_id, fix line numbers</text>
+  </g>
+  <line x1="340" y1="530" x2="340" y2="568" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="170" y="570" width="340" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.8"/>
+    <text x="340" y="592" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">Top 10 by CTR and by CPA</text>
+    <text x="340" y="612" text-anchor="middle" font-size="12" fill="#5F5E5A">Write top10_ctr.csv and top10_cpa.csv</text>
+  </g>
+
+  <rect x="150" y="656" width="12" height="12" rx="2" fill="#F1EFE8" stroke="#888780" stroke-width="0.8"/>
+  <text x="170" y="666" font-size="12" fill="#5F5E5A">Main thread</text>
+  <rect x="280" y="656" width="12" height="12" rx="2" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+  <text x="300" y="666" font-size="12" fill="#5F5E5A">Runs in parallel, no shared state, no locks</text>
+</svg>

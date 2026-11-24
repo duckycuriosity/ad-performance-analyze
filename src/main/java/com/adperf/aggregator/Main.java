@@ -1,16 +1,11 @@
 package com.adperf.aggregator;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintStream;
-import java.net.BindException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/**
- * Entry point. With {@code --input} it analyses a file and exits (CLI); without it, it starts a small web
- * page for uploading a file.
- */
+/** Command-line entry point: analyses one CSV file and writes the two result files. */
 public final class Main {
 
     static final int EXIT_OK = 0;
@@ -19,14 +14,13 @@ public final class Main {
     static final int EXIT_IO_ERROR = 4;
 
     private static final String USAGE = """
-            Usage:
-              java -jar ad-aggregator.jar --input <file.csv> [--output <dir>]   analyse a file
-              java -jar ad-aggregator.jar [--port <port>]                       start the upload page""";
+            Usage: ad-aggregator.exe --input <file.csv> [--output <dir>] [--threads <n>]
+               or: java -jar ad-aggregator.jar --input <file.csv> [--output <dir>] [--threads <n>]""";
 
     private Main() {
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         Options options;
         try {
             options = Options.parse(args);
@@ -36,29 +30,18 @@ public final class Main {
             System.exit(EXIT_USAGE);
             return;
         }
-        if (options.input() == null) {
-            try {
-                WebServer.start(options.port());
-            } catch (BindException e) {
-                System.err.printf("Error: port %d is already in use. Choose another one, e.g. --port %d%n",
-                        options.port(), options.port() + 1);
-                System.exit(EXIT_IO_ERROR);
-            }
-            System.out.println("Upload page running at http://localhost:" + options.port());
-            return;
-        }
-        System.exit(runCli(options.input(), options.outputDir(), System.out, System.err));
+        System.exit(run(options, System.out, System.err));
     }
 
-    static int runCli(Path input, Path outputDir, PrintStream out, PrintStream err) {
-        if (!Files.isRegularFile(input)) {
-            err.println("Error: input file not found: " + input.toAbsolutePath());
+    static int run(Options options, PrintStream out, PrintStream err) {
+        if (!Files.isRegularFile(options.input())) {
+            err.println("Error: input file not found: " + options.input().toAbsolutePath());
             return EXIT_INPUT_ERROR;
         }
-        try (InputStream stream = Files.newInputStream(input)) {
-            Report report = Aggregator.analyze(stream);
-            ResultCsv.writeFiles(report, outputDir);
-            printSummary(report, outputDir, out);
+        try {
+            Report report = Aggregator.analyze(options.input(), options.threads());
+            ResultCsv.writeFiles(report, options.outputDir());
+            printSummary(report, options, out);
             return EXIT_OK;
         } catch (InvalidInputException e) {
             err.println("Invalid input file: " + e.getMessage());
@@ -69,8 +52,9 @@ public final class Main {
         }
     }
 
-    private static void printSummary(Report report, Path outputDir, PrintStream out) {
-        out.printf("Processed %,d data rows in %.2f s%n", report.dataRows(), report.elapsed().toMillis() / 1000.0);
+    private static void printSummary(Report report, Options options, PrintStream out) {
+        out.printf("Processed %,d data rows in %.2f s using %d threads%n",
+                report.dataRows(), report.elapsed().toMillis() / 1000.0, options.threads());
         out.printf("  valid rows:    %,d%n", report.validRows());
         out.printf("  skipped rows:  %,d%n", report.skippedRows());
         report.skippedByReason().forEach((reason, count) ->
@@ -79,20 +63,22 @@ public final class Main {
                 out.printf("    line %d (%s): %s%n", row.lineNumber(), row.reason().description, row.content()));
         out.printf("  campaigns:     %,d%n", report.campaignCount());
         out.println("Results written to:");
-        out.println("  " + outputDir.resolve(ResultCsv.TOP_CTR_FILE).toAbsolutePath());
-        out.println("  " + outputDir.resolve(ResultCsv.TOP_CPA_FILE).toAbsolutePath());
+        out.println("  " + options.outputDir().resolve(ResultCsv.TOP_CTR_FILE).toAbsolutePath());
+        out.println("  " + options.outputDir().resolve(ResultCsv.TOP_CPA_FILE).toAbsolutePath());
     }
 
-    /** Command-line options. Accepts both {@code --name value} and {@code --name=value}. */
-    record Options(Path input, Path outputDir, int port) {
+    /**
+     * Command-line options. Accepts both {@code --name value} and {@code --name=value}.
+     * The thread count defaults to the number of available processors.
+     */
+    record Options(Path input, Path outputDir, int threads) {
 
         static final Path DEFAULT_OUTPUT_DIR = Path.of("results");
-        static final int DEFAULT_PORT = 8080;
 
         static Options parse(String[] args) {
             Path input = null;
             Path outputDir = DEFAULT_OUTPUT_DIR;
-            int port = DEFAULT_PORT;
+            int threads = Runtime.getRuntime().availableProcessors();
             for (int i = 0; i < args.length; i++) {
                 int equals = args[i].indexOf('=');
                 String name = equals < 0 ? args[i] : args[i].substring(0, equals);
@@ -110,11 +96,22 @@ public final class Main {
                 switch (name) {
                     case "--input" -> input = Path.of(value);
                     case "--output" -> outputDir = Path.of(value);
-                    case "--port" -> port = Integer.parseInt(value);
+                    case "--threads" -> threads = parseThreads(value);
                     default -> throw new IllegalArgumentException("Unknown argument: " + name);
                 }
             }
-            return new Options(input, outputDir, port);
+            if (input == null) {
+                throw new IllegalArgumentException("Missing required argument --input");
+            }
+            return new Options(input, outputDir, threads);
+        }
+
+        private static int parseThreads(String value) {
+            int threads = Integer.parseInt(value);
+            if (threads < 1) {
+                throw new IllegalArgumentException("--threads must be at least 1");
+            }
+            return threads;
         }
     }
 }

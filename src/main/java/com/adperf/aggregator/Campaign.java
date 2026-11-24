@@ -21,6 +21,12 @@ record Campaign(String id, long impressions, long clicks, long spendCents, long 
     static final Comparator<Campaign> BY_CPA_ASC =
             Comparator.comparingDouble(Campaign::cpa).thenComparing(Campaign::id);
 
+    /** Combines the totals of the same campaign from two chunks of the file. */
+    Campaign plus(Campaign other) {
+        return new Campaign(id, impressions + other.impressions, clicks + other.clicks,
+                spendCents + other.spendCents, conversions + other.conversions);
+    }
+
     /** CTR is undefined without impressions. */
     boolean hasCtr() {
         return impressions > 0;

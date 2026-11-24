@@ -23,22 +23,26 @@ class MainTest {
 
     @Test
     void parsesBothArgumentForms() {
-        Main.Options spaced = Main.Options.parse(new String[]{"--input", "ad_data.csv", "--output", "out/"});
+        Main.Options spaced = Main.Options.parse(new String[]{"--input", "ad_data.csv", "--output", "out/", "--threads", "3"});
         assertThat(spaced.input()).isEqualTo(Path.of("ad_data.csv"));
         assertThat(spaced.outputDir()).isEqualTo(Path.of("out"));
+        assertThat(spaced.threads()).isEqualTo(3);
 
-        Main.Options withEquals = Main.Options.parse(new String[]{"--input=ad_data.csv", "--port=9000"});
+        Main.Options withEquals = Main.Options.parse(new String[]{"--input=ad_data.csv"});
         assertThat(withEquals.outputDir()).isEqualTo(Path.of("results"));
-        assertThat(withEquals.port()).isEqualTo(9000);
-
-        assertThat(Main.Options.parse(new String[0]).input()).isNull();
+        assertThat(withEquals.threads()).isEqualTo(Runtime.getRuntime().availableProcessors());
     }
 
     @Test
     void rejectsBadArguments() {
+        assertThatThrownBy(() -> Main.Options.parse(new String[0])).hasMessage("Missing required argument --input");
         assertThatThrownBy(() -> Main.Options.parse(new String[]{"--input"})).hasMessage("Missing value for --input");
-        assertThatThrownBy(() -> Main.Options.parse(new String[]{"--verbose", "x"})).hasMessage("Unknown argument: --verbose");
-        assertThatThrownBy(() -> Main.Options.parse(new String[]{"--port", "abc"})).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Main.Options.parse(new String[]{"--input", "a", "--verbose", "x"}))
+                .hasMessage("Unknown argument: --verbose");
+        assertThatThrownBy(() -> Main.Options.parse(new String[]{"--input", "a", "--threads", "0"}))
+                .hasMessage("--threads must be at least 1");
+        assertThatThrownBy(() -> Main.Options.parse(new String[]{"--input", "a", "--threads", "abc"}))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -51,7 +55,7 @@ class MainTest {
         assertThat(exitCode).isEqualTo(Main.EXIT_OK);
         assertThat(dir.resolve("results/top10_ctr.csv")).exists();
         assertThat(dir.resolve("results/top10_cpa.csv")).exists();
-        assertThat(out.toString(StandardCharsets.UTF_8)).contains("Processed 1 data rows");
+        assertThat(out.toString(StandardCharsets.UTF_8)).contains("Processed 1 data rows", "using 2 threads");
     }
 
     @Test
@@ -70,7 +74,7 @@ class MainTest {
     }
 
     private int run(Path input, Path outputDir) {
-        return Main.runCli(input, outputDir,
+        return Main.run(new Main.Options(input, outputDir, 2),
                 new PrintStream(out, true, StandardCharsets.UTF_8), new PrintStream(err, true, StandardCharsets.UTF_8));
     }
 }
